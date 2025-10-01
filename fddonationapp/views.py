@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.generics import GenericAPIView
-from .models import log,user,user2,food,accepting
+from .models import log,donar,receiver,food,accepting
 from fddonationapp.serializers import userserializer,userserializers,logserializer,foodserializer,acceptingserializer
 from .PythonMail import sentmail
 from datetime import date
@@ -11,48 +11,58 @@ from datetime import date
 
     #    ....................donar.................
 class userregister(GenericAPIView):
-    serializer_class=userserializer
-    serializer_class_login=logserializer
-    # sSerializer
-    def post(self,request):
-        login_id=''
-        uname=request.data.get("uname")
-        email=request.data.get("email")
-        password=request.data.get("password")
-        cpassword=request.data.get("cpassword")
-        role="user"
+    serializer_class = userserializer
+    serializer_class_login = logserializer
 
-        userstatus="1"
-        
-        if(log.objects.filter(uname=uname)):
-            return Response({'message':'Duplicate username found'},status.HTTP_400_BAD_REQUEST)
-        else:
-            serializer_login=self.serializer_class_login(data={'uname':uname,'password':password,'role':role})    
+    def post(self, request):
+        uname = request.data.get("uname")
+        email = request.data.get("email")
+        password = request.data.get("password")
+        cpassword = request.data.get("cpassword")
+        role = "user"
+        userstatus = "1"
+
+        # check duplicate username
+        if log.objects.filter(uname=uname).exists():
+            return Response({'message': 'Duplicate username found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # create login entry first
+        serializer_login = self.serializer_class_login(data={
+            'uname': uname,
+            'password': password,
+            'role': role
+        })
+
         if serializer_login.is_valid():
-            Log=serializer_login.save()
-            login_id=Log.id
-            print(login_id)    
-        serializer=self.serializer_class(
-            data={
-               
-                'uname':uname,
-                
-                'email':email,
-                
-                'password':password,
-                'cpassword':cpassword,
-                'login':login_id,
+            Log = serializer_login.save()
+            login_id = Log.id   # save the generated login ID
+        else:
+            return Response({'data': serializer_login.errors,
+                             'message': 'login creation failed',
+                             'success': False},
+                            status=status.HTTP_400_BAD_REQUEST)
 
+        # now create user record linked to login
+        serializer = self.serializer_class(data={
+            'uname': uname,
+            'email': email,
+            'password': password,
+            'cpassword': cpassword,
+            'login': login_id,   # pass login reference
+        })
 
-            }
-        )
-        print(serializer)
         if serializer.is_valid():
-            print('hi')
-            sentmail(email,"Doner")
             serializer.save()
-            return Response({'data':serializer.data,'message':"Registration succesful","sucess":True},status=status.HTTP_201_CREATED)
-        return Response({'data': serializer.errors, 'message': 'registarion failed', 'success': False}, status= status.HTTP_400_BAD_REQUEST)
+            return Response({'data': serializer.data,
+                             'message': "Registration successful",
+                             "success": True},
+                            status=status.HTTP_201_CREATED)
+
+        return Response({'data': serializer.errors,
+                         'message': 'registration failed',
+                         'success': False},
+                        status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
@@ -121,7 +131,7 @@ class LoginAPIView1(GenericAPIView):
                 role = i['role']
 
                 # ......donar....
-                regdata = user.objects.all().filter(login= id).values()
+                regdata = donar.objects.all().filter(login= id).values()
                 print(regdata)
  
                 for i in regdata:
@@ -131,7 +141,7 @@ class LoginAPIView1(GenericAPIView):
                     print(u_id)
 
                         #  ......receiver.... 
-                regdatas = user2.objects.all().filter(login= id).values()
+                regdatas = receiver.objects.all().filter(login= id).values()
                 print(regdatas)
 
                 for i in regdatas:
@@ -165,7 +175,7 @@ class LoginAPIView1(GenericAPIView):
 class UserView(GenericAPIView):
     serializer_class = userserializer
     def get(self,request):
-        queryset = user.objects.all()
+        queryset = donar.objects.all()
         if(queryset.count()>0):
             serializers = userserializer(queryset,many= True)
 
@@ -177,7 +187,7 @@ class UserView(GenericAPIView):
 class receiverView(GenericAPIView):
     serializer_class = userserializers
     def get(self,request):
-        queryset = user2.objects.all()
+        queryset = receiver.objects.all()
         if(queryset.count()>0):
             serializers = userserializers(queryset,many= True)
 
@@ -191,30 +201,60 @@ class receiverView(GenericAPIView):
 
 
 
+from django.shortcuts import get_object_or_404
+
+from django.shortcuts import get_object_or_404
+
 class addfood(GenericAPIView):
-    serializer_class=foodserializer
+    serializer_class = foodserializer
 
+    def post(self, request):
+        foodname = request.data.get("foodname")
+        foodtype = request.data.get("foodtype")
+        quantity = request.data.get("quantity")
+        cookingtime = request.data.get("cookingtime")
+        image = request.data.get("image")
+        address = request.data.get("address")
+        phone = request.data.get("phone")
+        donarid = request.data.get("donarid")   # This should be donor's ID (primary key)
 
-    def post(self,request):
-        foodname=request.data.get("foodname")
-        foodtype=request.data.get("foodtype")
-        quantity=request.data.get("quantity")
-        cookingtime=request.data.get("cookingtime")
-        image=request.data.get("image")
-        address=request.data.get("address")
-        phone=request.data.get("phone")
-        donarid=request.data.get("donarid")
-        
-        foodstatus="0"
+        print(donarid,'checkingdonaridddd')
 
+        if not donarid:
+            return Response({'message': 'donarid is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Get the donor object
+        donar_obj = get_object_or_404(donar, id=donarid)
+        print(donar_obj,'donarobj')
 
-        serializer=self.serializer_class(data={'foodname':foodname, 'foodtype':foodtype,'quantity':quantity,'cookingtime':cookingtime,'image':image,'address':address,'phone':phone,'donarid':donarid})
-        print(serializer)
+        # Create serializer
+        serializer = self.serializer_class(data={
+            'foodname': foodname,
+            'foodtype': foodtype,
+            'quantity': quantity,
+            'cookingtime': cookingtime,
+            'image': image,
+            'address': address,
+            'phone': phone,
+            'donarid': donar_obj.id,  # ✅ DRF will accept PK here
+            'foodstatus': "0"
+        })
+
         if serializer.is_valid():
+            # ✅ Save with donor object
             serializer.save()
-            return Response({'data':serializer.data,'message':'food was added susccesfully','success':'1'},status=status.HTTP_201_CREATED)
-        return Response({'data':serializer.errors,'message':'adding food was failed','success':'0'},status=status.HTTP_400_BAD_REQUEST)            
+            return Response({
+                'data': serializer.data,
+                'message': 'food was added successfully',
+                'success': '1'
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            'data': serializer.errors,
+            'message': 'adding food failed',
+            'success': '0'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
@@ -408,10 +448,10 @@ class AcceptingAPIView(GenericAPIView):
             food_data.foodstatus = "1"
             food_data.save()
 
-            receiver_data = user2.objects.get(id=receiver)
+            receiver_data = receiver.objects.get(id=receiver)
             receivername = receiver_data.uname
 
-            donar_data = user.objects.get(id=donar)
+            donar_data = donar.objects.get(id=donar)
             donarname = donar_data.uname
 
             foodz = food.objects.get(id=foodss)

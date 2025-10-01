@@ -1,22 +1,22 @@
 from rest_framework import serializers
-from.models import user,user2,log,food,accepting
+from.models import donar,receiver,log,food,accepting
 
 
     #  donar
 class userserializer(serializers.ModelSerializer):
     class Meta:
-        model=user
+        model=donar
         fields='__all__'
     def Create (self,validated_data):
-        return user.objects.Create(**validated_data)
+        return donar.objects.Create(**validated_data)
 
     #   receiver     
 class userserializers(serializers.ModelSerializer):
     class Meta:
-        model=user2
+        model=receiver
         fields='__all__'
     def Create (self,validated_data):
-        return user.objects.Create(**validated_data)
+        return donar.objects.Create(**validated_data)
     
 class logserializer(serializers.ModelSerializer):
     class Meta:

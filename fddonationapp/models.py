@@ -11,7 +11,7 @@ class log(models.Model):
     
 
 #    donar    
-class user(models.Model):
+class donar(models.Model):
     
     uname= models.CharField(max_length=30,null=True)
 
@@ -25,7 +25,7 @@ class user(models.Model):
     
 
     #  receiver
-class user2(models.Model):
+class receiver(models.Model):
     
     uname= models.CharField(max_length=30,null=True)
 
@@ -48,7 +48,7 @@ class food(models.Model):
     address=models.CharField(max_length=30,null=True)
     phone=models.CharField(max_length=30,null=True)
     
-    donarid=models.ForeignKey(user, on_delete=models.CASCADE)
+    donarid=models.ForeignKey(donar, on_delete=models.CASCADE)
     foodstatus=models.CharField(max_length=120,null=True)
 
     def __str__(self):
@@ -56,9 +56,9 @@ class food(models.Model):
     
 
 class accepting(models.Model):
-    receiverid =models.ForeignKey(user2,on_delete=models.CASCADE)
+    receiverid =models.ForeignKey(receiver,on_delete=models.CASCADE)
     foodid=models.ForeignKey(food,on_delete=models.CASCADE)
-    donarid=models.ForeignKey(user,on_delete=models.CASCADE) 
+    donarid=models.ForeignKey(donar,on_delete=models.CASCADE) 
     receivername=models.CharField(max_length=30,null=True)
     donarname=models.CharField(max_length=30,null=True)
     foodname=models.CharField(max_length=30,null=True)
